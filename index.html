@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Classroom Occupancy Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div id="login-container">
+        <h2>Faculty Login</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+        <p id="error-message"></p>
+    </div>
+    
+    <div id="tracker-container">
+        <header>
+            <h1>AI-Powered Classroom Occupancy Tracker</h1>
+        </header>
+        
+        <div class="button-container">
+            <button onclick="showAvailable()">Show Available</button>
+            <button onclick="showOccupied()">Show Occupied</button>
+            <button onclick="showAll()">Show All</button>
+        </div>
+        
+        <section id="room-status">
+            <h2>Real-Time Room Occupancy</h2>
+            <div id="rooms" class="room-container"></div>
+        </section>
+        
+        <section id="labs">
+            <h2>Lab Availability</h2>
+            <div id="labs-container"></div>
+        </section>
+        
+        <h3 id="ai-suggestion"></h3>
+    </div>
+    
+    <script>
+        const floors = {
+            "Floor 1": ["A11", "A12", "A13", "A14"],
+            "Floor 2": ["B21", "B22", "B23", "B24"],
+            "Floor 3": ["C31", "C32", "C33", "C34"],
+            "Floor 4": ["D41", "D42", "D43", "D44"]
+        };
+        
+        const labs = ["Lab 1", "Lab 2", "Lab 3", "Lab 4", "Lab 5", "Lab 6"];
+        
+        let roomStatus = {}; // Global variable to store room statuses
+        let labStatus = {}; // Global variable to store lab statuses
+        
+        async function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const errorMessage = document.getElementById("error-message");
+            
+            if (username === "faculty" && password === "1234") {
+                $("#login-container").fadeOut(300, function() {
+                    $("#tracker-container").fadeIn(300);
+                    updateRoomStatus();
+                    updateLabStatus();
+                });
+                document.body.style.background = "#f4f4f4";
+            } else {
+                errorMessage.innerText = "Invalid credentials!";
+                errorMessage.classList.add("show");
+                setTimeout(() => errorMessage.classList.remove("show"), 2000);
+            }
+        }
+        
+        async function updateRoomStatus() {
+            try {
+                const response = await fetch('http://localhost:3000/api/room-status');
+                roomStatus = await response.json(); // Update the global roomStatus variable
+                const roomContainer = document.getElementById("rooms");
+                roomContainer.innerHTML = "";
+                Object.keys(floors).forEach(floor => {
+                    floors[floor].forEach(room => {
+                        const roomDiv = document.createElement("div");
+                        roomDiv.className = room ${roomStatus[room] ? 'occupied' : 'available'};
+                        roomDiv.innerHTML = `
+                            <strong>${room}</strong>: 
+                            <span>${roomStatus[room] ? "Occupied" : "Available"}</span>
+                            <button onclick="toggleRoomStatus('${room}')">Toggle</button>
+                        `;
+                        roomContainer.appendChild(roomDiv);
+                    });
+                });
+                $(roomContainer).children().hide().each(function(index) {
+                    $(this).delay(index * 50).fadeIn(200);
+                });
+                suggestAlternativeRooms();
+            } catch (error) {
+                console.error('Error fetching room status:', error);
+            }
+        }
+        
+        async function toggleRoomStatus(room) {
+            try {
+                console.log('Toggling room:', room, 'Current status:', roomStatus[room]); // Debugging line
+                const response = await fetch('http://localhost:3000/api/room-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room, status: !roomStatus[room] }),
+                });
+                const data = await response.json();
+                console.log('Response from server:', data); // Debugging line
+                updateRoomStatus(); // Refresh the room status
+            } catch (error) {
+                console.error('Error updating room status:', error);
+            }
+        }
+        
+        async function updateLabStatus() {
+            try {
+                const response = await fetch('http://localhost:3000/api/lab-status');
+                labStatus = await response.json(); // Update the global labStatus variable
+                const labContainer = document.getElementById("labs-container");
+                labContainer.innerHTML = "";
+                labs.forEach(lab => {
+                    const labDiv = document.createElement("div");
+                    labDiv.className = lab ${labStatus[lab] ? 'occupied' : 'available'};
+                    labDiv.innerHTML = `
+                        <strong>${lab}</strong>: 
+                        <span>${labStatus[lab] ? "Occupied" : "Available"}</span>
+                        <button onclick="toggleLabStatus('${lab}')">Toggle</button>
+                    `;
+                    labContainer.appendChild(labDiv);
+                });
+                $(labContainer).children().hide().each(function(index) {
+                    $(this).delay(index * 50).fadeIn(200);
+                });
+            } catch (error) {
+                console.error('Error fetching lab status:', error);
+            }
+        }
+        
+        async function toggleLabStatus(lab) {
+            try {
+                console.log('Toggling lab:', lab, 'Current status:', labStatus[lab]); // Debugging line
+                const response = await fetch('http://localhost:3000/api/lab-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lab, status: !labStatus[lab] }),
+                });
+                const data = await response.json();
+                console.log('Response from server:', data); // Debugging line
+                updateLabStatus(); // Refresh the lab status
+            } catch (error) {
+                console.error('Error updating lab status:', error);
+            }
+        }
+        
+        function showAvailable() {
+            $(".room, .lab").each(function() {
+                $(this).stop().animate({
+                    opacity: $(this).hasClass("available") ? 1 : 0.3,
+                }, 400);
+            });
+        }
+        
+        function showOccupied() {
+            $(".room, .lab").each(function() {
+                $(this).stop().animate({
+                    opacity: $(this).hasClass("occupied") ? 1 : 0.3,
+                }, 400);
+            });
+        }
+        
+        function showAll() {
+            $(".room, .lab").each(function(index) {
+                $(this).stop().animate({
+                    opacity: 1,
+                }, 400);
+            });
+        }
+        
+        function suggestAlternativeRooms() {
+            let availableRooms = Object.keys(floors).flatMap(floor => floors[floor]).filter(room => !roomStatus[room]);
+            document.getElementById("ai-suggestion").innerText = availableRooms.length > 0 ? 
+                Suggested available room: ${availableRooms[0]} : "No alternative rooms available.";
+            $("#ai-suggestion").fadeOut(100).fadeIn(300);
+        }
+    </script>
+</body>
+</html>
